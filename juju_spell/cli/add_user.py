@@ -20,7 +20,6 @@ import textwrap
 from getpass import getpass
 from typing import Any
 
-import craft_cli
 import yaml
 from craft_cli import emit
 from craft_cli.dispatcher import _CustomArgumentParser
@@ -70,10 +69,7 @@ class AddUserCMD(JujuWriteCMD):
         parser.add_argument(
             "--display_name",
             type=str,
-            help=(
-                "display_name to create. If display_name is None then it will be set"
-                "as user"
-            ),
+            help=("display_name to create. If display_name is None then it will be set as user"),
             required=False,
         )
         parser.add_argument(
@@ -81,7 +77,7 @@ class AddUserCMD(JujuWriteCMD):
             dest="password",
             nargs="?",
             required=False,
-            help=craft_cli.HIDDEN,
+            help=argparse.SUPPRESS,
         )
 
     def before(self, parsed_args: argparse.Namespace) -> None:

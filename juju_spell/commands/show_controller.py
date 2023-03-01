@@ -1,3 +1,6 @@
+"""Command to show controllers information."""
+from typing import Any
+
 from juju.client._definitions import ControllerAPIInfoResults
 from juju.controller import Controller
 
@@ -8,7 +11,10 @@ class ShowControllerCommand(BaseJujuCommand):
     """Command to show a controller."""
 
     async def execute(
-        self, controller: Controller, **kwargs
+        self,
+        controller: Controller,
+        *args: Any,
+        **kwargs: Any,
     ) -> ControllerAPIInfoResults:
         """Execute main code.
 

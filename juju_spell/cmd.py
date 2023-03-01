@@ -5,6 +5,7 @@ import inspect
 import logging
 import os
 import sys
+from typing import Any, List
 
 from craft_cli import (
     ArgumentParsingError,
@@ -30,22 +31,20 @@ from juju_spell.settings import (
 )
 
 GLOBAL_ARGS = [
-    GlobalArgument(
-        "version", "flag", None, "--version", "Show the application version and exit"
-    ),
-    GlobalArgument(
-        "config", "option", "-c", "--config", "Set the path to custom config."
-    ),
+    GlobalArgument("version", "flag", None, "--version", "Show the application version and exit"),
+    GlobalArgument("config", "option", "-c", "--config", "Set the path to custom config."),
     GlobalArgument("cross-fingers", "flag", None, "--cross-fingers", argparse.SUPPRESS),
 ]
 
 
-def get_all_subclasses(cls):
+def get_all_subclasses(cls: Any) -> List[object]:
+    """Get all subclasses of class."""
     all_classes = inspect.getmembers(cli, inspect.isclass)
     return [obj for _, obj in all_classes if issubclass(obj, cls) and obj != cls]
 
 
-def get_command_groups():
+def get_command_groups() -> List[CommandGroup]:
+    """Get grouped commands."""
     ro_commands = get_all_subclasses(JujuReadCMD)
     rw_commands = get_all_subclasses(JujuWriteCMD)
     command_groups = [
@@ -80,9 +79,7 @@ def get_verbosity() -> EmitterMode:
         try:
             verbosity = EmitterMode[verbosity_env.strip().upper()]
         except KeyError:
-            values = utils.humanize_list(
-                [e.name.lower() for e in EmitterMode], "and", sort=False
-            )
+            values = utils.humanize_list([e.name.lower() for e in EmitterMode], "and", sort=False)
             raise ArgumentParsingError(
                 f"cannot parse verbosity level {verbosity_env!r} from environment "
                 f"variable SNAPCRAFT_VERBOSITY_LEVEL (valid values are {values})"
@@ -124,7 +121,7 @@ def _run_dispatcher(dispatcher: Dispatcher) -> None:
     loaded with dispatcher and finally the dispatcher will be run.
     """
     # Check if -v or --version was provided
-    args, filtered_params = dispatcher._parse_options(
+    args, filtered_params = dispatcher._parse_options(  # pylint: disable=W0212
         dispatcher.global_arguments, sys.argv[1:]
     )
     if args.get("version"):
@@ -171,14 +168,14 @@ def exec_cmd() -> int:
         emit.error(err)
         return_code = 1
     except KeyboardInterrupt as exc:
-        error = CraftError("Interrupted.")
-        error.__cause__ = exc
-        emit.error(error)
+        craft_error = CraftError("Interrupted.")
+        craft_error.__cause__ = exc
+        emit.error(craft_error)
         return_code = 130
-    except Exception as exc:
-        error = CraftError(f"Application internal error: {exc!r}")
-        error.__cause__ = exc
-        emit.error(error)
+    except Exception as exc:  # pylint: disable=W0718
+        craft_error = CraftError(f"Application internal error: {exc!r}")
+        craft_error.__cause__ = exc
+        emit.error(craft_error)
         return_code = 1
 
     return return_code

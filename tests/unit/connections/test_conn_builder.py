@@ -7,7 +7,7 @@ import tenacity
 from juju.errors import JujuAPIError, JujuConnectionError
 
 from juju_spell.config import RetryPolicy
-from juju_spell.settings import DEFAULT_CONNECTIN_WAIT, DEFUALT_MAX_FRAME_SIZE
+from juju_spell.settings import DEFAULT_CONNECTION_WAIT, DEFAULT_MAX_FRAME_SIZE
 
 
 @pytest.mark.asyncio
@@ -35,7 +35,7 @@ async def test_build_controller_conn():
     mock_controller._connector.connect.assert_has_awaits(
         [
             mock.call(
-                max_frame_size=DEFUALT_MAX_FRAME_SIZE,
+                max_frame_size=DEFAULT_MAX_FRAME_SIZE,
                 endpoint="localhost:1234",
                 username="user",
                 password="password",
@@ -113,10 +113,8 @@ async def test_build_controller_conn_retry_policy(
 
     default = {
         "stop_func": tenacity.stop_any(*[]),
-        "wait_func": tenacity.wait_fixed(DEFAULT_CONNECTIN_WAIT),
-        "retry_func": tenacity.retry_any(
-            *[tenacity.retry_if_exception_type(JujuConnectionError)]
-        ),
+        "wait_func": tenacity.wait_fixed(DEFAULT_CONNECTION_WAIT),
+        "retry_func": tenacity.retry_any(*[tenacity.retry_if_exception_type(JujuConnectionError)]),
     }
     exp_args = {**default, **exp_args}
 
@@ -169,9 +167,7 @@ async def test_conn(mock_before_log, mock_after_log, mock_retrying):
         "cacert": "ca_cert",
         "stop_func": tenacity.stop_any(tenacity.stop_after_delay(1)),
         "wait_func": tenacity.wait_fixed(1),
-        "retry_func": tenacity.retry_any(
-            *[tenacity.retry_if_exception_type(JujuConnectionError)]
-        ),
+        "retry_func": tenacity.retry_any(*[tenacity.retry_if_exception_type(JujuConnectionError)]),
     }
     await _conn(**params)
 
