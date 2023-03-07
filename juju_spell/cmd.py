@@ -46,10 +46,10 @@ def get_all_subclasses(cls: Any) -> List[object]:
 def get_command_groups() -> List[CommandGroup]:
     """Get grouped commands."""
     ro_commands = get_all_subclasses(JujuReadCMD)
-    rw_commands = get_all_subclasses(JujuWriteCMD)
+    # rw_commands = get_all_subclasses(JujuWriteCMD)
     command_groups = [
         CommandGroup("ReadOnly", ro_commands),
-        CommandGroup("ReadWrite", rw_commands),
+        # CommandGroup("ReadWrite", rw_commands),
     ]
 
     return command_groups

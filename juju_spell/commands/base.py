@@ -16,14 +16,14 @@
 
 """JujuSpell base juju command."""
 import dataclasses
+import json
 import logging
 from abc import ABCMeta, abstractmethod
-from typing import Any, AsyncGenerator, Dict, List, Optional, Tuple
+from typing import Any, Optional
 
-from juju.controller import Controller
-from juju.model import Model
+from craft_cli import emit
 
-from juju_spell.exceptions import JujuSpellError
+from juju_spell.settings import DEFAULT_CACHE_DIR
 
 
 @dataclasses.dataclass(frozen=True)
@@ -34,125 +34,200 @@ class Result:
     output: Optional[Any] = None
     error: Optional[Exception] = None
 
+    def __repr__(self):
+        emit.debug(f"formatting `{self.__dict__}`")
+        if isinstance(self.__dict__, (dict, list)):
+            return json.dumps(self.__dict__, default=vars, indent=2)
 
-class BaseJujuCommand(metaclass=ABCMeta):
-    """Base Juju commands."""
+        return str(self.__dict__)
 
-    def __init__(self) -> None:
+
+class SequentialCommandGroup:
+    def __init__(self, commands):
+        """FIXME. we really need a DAG"""
+        self._commands = commands
+
+    async def __call__(self, command_arguments, prev_results=None, **kwargs):
+        results = []
+        if results is not None and isinstance(prev_results, list):
+            results += prev_results
+        for command in self._commands:
+            results.append(await command(command_arguments, prev_results=results, **kwargs))
+        return results
+
+
+class ParallelCommandGroup:
+    def __init__(self, commands):
+        """FIXME. we really need a DAG"""
+        self._commands = commands
+
+    async def __call__(self, command_arguments, prev_results=None, **kwargs):
+        results = []
+        for command in self._commands:
+            results.append(await command(command_arguments, prev_results=prev_results, **kwargs))
+        return results
+
+
+class Command(metaclass=ABCMeta):
+    def __init__(self):
         """Init for command."""
+        self._result = None
         self.name = getattr(self.__class__, "__name__", "unknown")
         self.logger = logging.getLogger(self.name)
 
-    @staticmethod
-    async def get_filtered_models(
-        controller: Controller,
-        model_mappings: Dict[str, List[str]],
-        models: Optional[List[str]] = None,
-    ) -> AsyncGenerator[Tuple[str, Model], None]:
-        """Get filtered models for controller.
+    async def __call__(self, command_arguments, prev_results=None, **kwargs):
+        uuid = command_arguments["controller_config"].uuid
 
-        If models is None, then all models for controller will be returned.
-        If the model_mapping[model] exits for specific model it will be replaced by the
-        list of values from model_mapping[model] from config.
-        """
-        if models is None or len(models) <= 0:
-            all_models = await controller.list_models()
-        else:
-            all_models = _apply_model_mappings(models, model_mappings)
+        # TODO: add dry-run
 
-        for model_name in all_models:
-            model = await controller.get_model(model_name)
-            yield model_name, model
-            await model.disconnect()
+        if self.cachable and not command_arguments.get("refresh"):
+            # move these somewhere else -->
+            if not DEFAULT_CACHE_DIR.exists():
+                DEFAULT_CACHE_DIR.mkdir()
+            # move these somewhere else <--
+            cached_result = self.load_from_cache(DEFAULT_CACHE_DIR / uuid)
+            if cached_result:
+                self._result = Result(True, output=cached_result, error=None)
+                return self.result
 
-    # pylint: disable=W0613
-    async def pre_check(self, controller: Controller, **kwargs: Any) -> Optional[Result]:
-        """Run pre-check for command."""
-        self.logger.debug("%s running pre-check", controller.controller_uuid)
-        if not controller.is_connected():
-            self.logger.info(
-                "%s pre-check: controller is connected",
-                controller.controller_uuid,
-            )
-            return Result(
-                False,
-                error=JujuSpellError(f"controller {controller.controller_uuid} is not connected"),
-            )
-
-        return None
-
-    # pylint: disable=W0613
-    async def dry_run(self, controller: Controller, **kwargs: Any) -> Result:
-        """Dry-run will output the necessary information of the target."""
-        self.logger.info("%s running dry-run", controller.controller_uuid)
-        return Result(
-            success=True,
-            output={
-                "target": controller.controller_uuid,
-                "command_doc": self.execute.__doc__,
-            },
-        )
-
-    async def run(self, controller: Controller, **kwargs: Any) -> Result:
-        """Execute Juju command.
-
-        **This function should not be changed.**
-        """
-        self.logger.info("%s running %s command", controller.controller_uuid, self.name)
         try:
-            output = await self.execute(controller, **kwargs)
-            if not isinstance(output, Result):
-                output = Result(True, output=output)
-
-            return output
-        except Exception as error:  # pylint: disable=W0718
+            pre_process_inputs = self.pre_process(
+                command_arguments, prev_results=prev_results, **kwargs
+            )
+            result = await self.execute(
+                command_arguments,
+                prev_results=prev_results,
+                pre_process_inputs=pre_process_inputs,
+                **kwargs,
+            )
+            post_process_result = self.post_process(
+                result,
+                prev_results=prev_results,
+                pre_process_inputs=pre_process_inputs,
+                command_arguments=command_arguments,
+                **kwargs,
+            )
+            self._result = Result(True, output=post_process_result, error=None)
+        except Exception as error:
             self.logger.exception(error)
-            return Result(False, output=None, error=error)
+            self._result = Result(False, output=None, error=error)
+            return self.result
+
+        if self.cachable:
+            # move these somewhere else -->
+            if not DEFAULT_CACHE_DIR.exists():
+                DEFAULT_CACHE_DIR.mkdir()
+            # move these somewhere else <--
+            self.save_to_cache(DEFAULT_CACHE_DIR / uuid, result=self.result)
+
+        return self.result
 
     @property
-    def need_sshuttle(self) -> bool:
-        """Check if sshuttle is needed."""
-        return False
+    @abstractmethod
+    def cachable(self):
+        pass
+
+    @property
+    @abstractmethod
+    def sshuttle(self):
+        pass
+
+    @abstractmethod
+    def load_from_cache(self, file):
+        """FIXME."""
+        pass
+
+    @abstractmethod
+    def save_to_cache(self, file, result):
+        """FIXME."""
+        pass
+
+    @property
+    def result(self) -> Any:
+        return self._result
+
+    def pre_process(self, command_arguments, prev_results=None, **kwargs):
+        """FIXME."""
+        return None
 
     @abstractmethod
     async def execute(
+        self, command_arguments, prev_results=None, pre_process_inputs=None, **kwargs
+    ):
+        """FIXME."""
+        pass
+
+    def post_process(
         self,
-        controller: Controller,
-        *args: Any,
-        **kwargs: Any,
-    ) -> Any:  # pragma: no cover
-        """Execute function.
-
-        This part will be the main part function
-        Args:
-            controller: This will be juju controller
-            kwargs: This will be the kwargs passed to the function which
-                will contain the config for the selected controller
-        """
+        result,
+        prev_results=None,
+        pre_process_inputs=None,
+        command_arguments=None,
+        **kwargs,
+    ):
+        """FIXME."""
+        return result
 
 
-def _apply_model_mappings(
-    models: List[str],
-    model_mappings: Optional[Dict[str, List[str]]],
-) -> List[str]:
-    """Replace the models with values from model_mappings.
+class JujuReadCommand(Command):
+    def __init__(self):
+        """FIXME."""
+        super().__init__()
 
-    If --model parameter is provided searches the map for matching model, if found
-    puts the corresponding values from controller.model_mapping into results if not
-    found puts the model itself to results.
-    Args:
-        models: list of models from input
-        model_mappings: mappings from config file
-    Returns:
-        list of models replaced with values from model_mappings
-    """
-    if model_mappings is None or len(model_mappings) <= 0:
-        return models
+    @property
+    def cachable(self):
+        return True
 
-    results = []
-    for model in models:
-        model_list = model_mappings.get(model, [model])
-        model_list = model_list if len(model_list) > 0 else [model]
-        results.extend(model_list)
+    @property
+    def sshuttle(self):
+        return True
 
-    return results
+    def load_from_cache(self, file):
+        """FIXME."""
+        self.logger.debug("load_from_cache is not implemented for %s: pass though.", self.name)
+
+    def save_to_cache(self, file, result):
+        """FIXME."""
+        self.logger.debug("save_to_cache is not implemented for %s: pass though.", self.name)
+
+
+class JujuWriteCommand(Command):
+    def __init__(self):
+        """FIXME."""
+        super().__init__()
+
+    @property
+    def cachable(self):
+        return False
+
+    @property
+    def sshuttle(self):
+        return True
+
+    def load_from_cache(self, file):
+        raise NotImplementedError("Caching is not supported for WRITE command.")
+
+    def save_to_cache(self, file, result):
+        raise NotImplementedError("Caching is not supported for WRITE command.")
+
+
+class JujuReadWriteCommand(Command):
+    def __init__(self):
+        """FIXME."""
+        super().__init__()
+
+    @property
+    def cachable(self):
+        return True
+
+    @property
+    def sshuttle(self):
+        return True
+
+    def load_from_cache(self, file):
+        """FIXME."""
+        self.logger.debug("load_from_cache is not implemented for %s: pass though.", self.name)
+
+    def save_to_cache(self, file, result):
+        """FIXME."""
+        self.logger.debug("save_to_cache is not implemented for %s: pass though.", self.name)

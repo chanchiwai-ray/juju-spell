@@ -16,25 +16,22 @@
 
 """JujuSpell base cli command."""
 import argparse
-import asyncio
-import json
-import os
-from abc import ABCMeta, abstractmethod
-from typing import Any, Optional, Type
+from abc import ABCMeta
+from typing import Optional, Type
 
 from craft_cli import BaseCommand, emit
 from craft_cli.dispatcher import _CustomArgumentParser
 
-from juju_spell.assignment.runner import run
-from juju_spell.cli.utils import confirm, parse_comma_separated_str, parse_filter
-from juju_spell.commands.base import BaseJujuCommand
+from juju_spell.assignment.runner import get_runner
+from juju_spell.cli.utils import parse_comma_separated_str, parse_filter
+from juju_spell.commands.base import Command
 from juju_spell.config import Config
-from juju_spell.exceptions import JujuSpellError
-from juju_spell.filter import get_filtered_config
 
 
-class BaseCMD(BaseCommand, metaclass=ABCMeta):
-    """Base CLI command for handling contexts."""
+class BaseJujuCMD(BaseCommand, metaclass=ABCMeta):
+    """Base CLI command for handling any Juju commands."""
+
+    command: Type[Command]
 
     def __init__(self, config: Config) -> None:
         """Initialize BaseCMD."""
@@ -47,66 +44,15 @@ class BaseCMD(BaseCommand, metaclass=ABCMeta):
 
         **This function should not be changed.**
         """
-        try:
-            self.before(parsed_args)
-            emit.trace(f"function 'before' was run for {self.name} command")
-            retval = self.execute(parsed_args)
-            emit.trace(f"raw output of {self.name} command: {retval}")
-            message = self.format_output(retval)
-            emit.message(message)  # print the output
-            self.after(parsed_args)
-            emit.trace(f"function 'after' was run for {self.name} command")
-            return 0
-        except Exception as error:
-            raise JujuSpellError(
-                f"{self.name} failed to run with error{os.linesep}  {error}"
-            ) from error
-
-    @staticmethod
-    def format_output(retval: Any) -> str:
-        """Pretty formatter for output."""
-        emit.debug(f"formatting `{retval}`")
-        if isinstance(retval, (dict, list)):
-            return json.dumps(retval, default=vars, indent=1)
-
-        return str(retval)
-
-    @abstractmethod
-    def execute(self, parsed_args: argparse.Namespace) -> Any:  # pragma: no cover
-        """Abstract function need to be defined for each JujuSpell CLI command."""
-
-    def before(self, parsed_args: argparse.Namespace) -> None:  # pragma: no cover
-        """Run before execution."""
-
-    def after(self, parsed_args: argparse.Namespace) -> None:  # pragma: no cover
-        """Run after execution."""
-
-    def fill_parser(self, parser: _CustomArgumentParser) -> None:
-        parser.add_argument(
-            "--dry-run",
-            default=False,
-            action="store_true",
-            help=("This will only run pre-check and dry-run only instead of real execution."),
-        )
-
-
-class BaseJujuCMD(BaseCMD, metaclass=ABCMeta):
-    """Base CLI command for handling any Juju commands."""
-
-    command: Type[BaseJujuCommand]
+        runner = get_runner(parsed_args.run_type)
+        results = runner(self.config, self.command, parsed_args).run()
+        emit.message("\n".join([str(result[-1]) for result in results])) # FIXME: we really need a DAG
 
     def fill_parser(self, parser: _CustomArgumentParser) -> None:
         """Define base arguments for Juju commands.
 
         This will add arguments for connection, filtering and config.
         """
-        super().fill_parser(parser)
-        parser.add_argument(
-            "--no-confirm",
-            default=False,
-            action="store_true",
-            help="This will skip all the confirm check.",
-        )
         parser.add_argument(
             "--run-type",
             type=str,
@@ -125,38 +71,46 @@ class BaseJujuCMD(BaseCMD, metaclass=ABCMeta):
             ),
         )
         parser.add_argument(
+            "-c",
+            "--controllers",
+            type=parse_comma_separated_str,
+            help="controller filter",
+        )
+        parser.add_argument(
+            "-m",
             "--models",
             type=parse_comma_separated_str,
             help="model filter",
         )
 
-    def execute(self, parsed_args: argparse.Namespace) -> Any:
-        """Execute Juju Commands."""
-        if self.command is None or not issubclass(self.command, BaseJujuCommand):
-            raise RuntimeError(f"command `{self.command}` is incorrect")
-
-        filtered_config = get_filtered_config(self.config, parsed_args.filter)
-        loop = asyncio.get_event_loop()
-        task = loop.create_task(run(filtered_config, self.command(), parsed_args))
-        loop.run_until_complete(asyncio.gather(task))
-        return task.result()
-
 
 class JujuReadCMD(BaseJujuCMD, metaclass=ABCMeta):
     """Base CLI command for handling Juju commands with read access."""
+
+    def fill_parser(self, parser):
+        super().fill_parser(parser)
+        parser.add_argument(
+            "--refresh",
+            default=False,
+            action="store_true",
+            help="This will force pulling latest information from the controllers.",
+        )
 
 
 class JujuWriteCMD(BaseJujuCMD, metaclass=ABCMeta):
     """Base CLI command for handling Juju commands with write access."""
 
-    abort = False
-
-    def run(self, parsed_args: argparse.Namespace) -> Optional[int]:
-        """Execute CLI command for JujuCommands."""
-        if not parsed_args.no_confirm and not confirm(
-            text=f"Continue on cmd: {self.name} parsed_args: {parsed_args}",
-            abort=self.abort,
-        ):
-            return 0
-
-        return super().run(parsed_args)
+    def fill_parser(self, parser):
+        super().fill_parser(parser)
+        parser.add_argument(
+            "--dry-run",
+            default=False,
+            action="store_true",
+            help=("This will only run pre-check and dry-run only instead of real execution."),
+        )
+        parser.add_argument(
+            "--no-confirm",
+            default=False,
+            action="store_true",
+            help="This will skip all the confirm check.",
+        )

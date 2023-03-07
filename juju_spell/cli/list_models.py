@@ -19,33 +19,18 @@ import textwrap
 
 from juju_spell.cli.base import JujuReadCMD
 from juju_spell.commands.base import SequentialCommandGroup
-from juju_spell.commands.controller_connected import ControllerConnected
 from juju_spell.commands.get_controller import GetController
+from juju_spell.commands.list_models import ListModels
 
 
-class PingCMD(JujuReadCMD):
-    """JujuSpell ping command to verify connection to controller."""
+class ListModelsCMD(JujuReadCMD):
+    """Command to list models from the local cache or from the controllers."""
 
-    name = "ping"
-    help_msg = "Check connection to controller(s)"
+    name = "list-models"
+    help_msg = "Return the list of models from the local cache or from the controllers."
     overview = textwrap.dedent(
         """
-        The ping command check connection to controller(s).
-
-        Example:
-        $ juju-spell ping
-        [
-         {
-          "context": {
-           "uuid": "e9fe93a8-b705-4067-8f30-6eec183eeb4f",
-           "name": "controller1",
-           "customer": "Gandalf"
-          },
-          "success": true,
-          "output": "accessible",
-          "error": null
-         }
-        ]
+        FIXME
         """
     )
-    command = SequentialCommandGroup([GetController(), ControllerConnected()])
+    command = SequentialCommandGroup([GetController(), ListModels()])

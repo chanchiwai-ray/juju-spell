@@ -15,22 +15,12 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 """JujuSpell cli commands."""
-from .add_user import AddUserCMD
-from .enable_user import EnableUserCMD
-from .grant import GrantCMD
+from .list_models import ListModelsCMD
 from .ping import PingCMD
-from .remove_user import RemoveUserCMD
-from .show_controller import ShowControllerInformationCMD
-from .status import StatusCMD
-from .update_packages import UpdatePackages
+from .get_model_status import GetModelStatusCMD
 
 __all__ = [
-    "AddUserCMD",
-    "EnableUserCMD",
-    "GrantCMD",
-    "RemoveUserCMD",
     "PingCMD",
-    "StatusCMD",
-    "ShowControllerInformationCMD",
-    "UpdatePackages",
+    "ListModelsCMD",
+    "GetModelStatusCMD",
 ]

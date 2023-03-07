@@ -6,14 +6,16 @@ Provides different ways to run the Juju command:
     - Parallel: 20 in parallel
     - Serial: 20 commands in 1 parallel
 """
+import asyncio
 import logging
-from argparse import Namespace
+from abc import ABCMeta, abstractmethod
 from dataclasses import asdict
 from typing import Any, Dict, List
 
-from juju_spell.commands.base import BaseJujuCommand, Result
-from juju_spell.config import Config, Controller
-from juju_spell.connections import connect_manager, get_controller
+from juju_spell.commands.base import Result
+from juju_spell.config import Controller
+from juju_spell.connections import connect_manager
+from juju_spell.filter import get_filtered_config
 
 logger = logging.getLogger(__name__)
 
@@ -33,70 +35,81 @@ def get_result(controller_config: Controller, output: Result) -> ResultType:
     }
 
 
-async def run_parallel(
-    config: Config, command: BaseJujuCommand, parsed_args: Namespace
-) -> ResultsType:
-    """Run controller target command in parallel.
-
-    THIS FUNCTION IS NOT YET SUPPORTED.
-    """
-    raise NotImplementedError("running in parallel is not yet supported")
-
-
-async def run_serial(
-    config: Config, command: BaseJujuCommand, parsed_args: Namespace
-) -> ResultsType:
-    """Run controller target command serially.
-
-    Parameters:
-        config(Config): application configuration
-        command(BaseJujuCommand): command to run
-        parsed_args(Namespace): Namespace from CLI
-    Returns:
-        results(Dict): Controller dict with result.
-    """
-    results: ResultsType = []
-    for controller_config in config.controllers:
-        controller = await get_controller(controller_config)
-        logger.debug("%s running in serial", controller.controller_uuid)
-        command_kwargs = vars(parsed_args)
-        command_kwargs["controller_config"] = controller_config
-
-        pre_check = await command.pre_check(controller=controller, **command_kwargs)
-
-        if pre_check is not None:
-            output = pre_check
-        elif parsed_args.dry_run:
-            output = await command.dry_run(controller=controller, **command_kwargs)
-        else:
-            output = await command.run(controller=controller, **command_kwargs)
-
-        result = get_result(controller_config, output)
-        results.append(result)
-
-    return results
+def get_runner(run_type):
+    logger.info("running with run_type: %s", run_type)
+    if run_type == "parallel":
+        return ParallelRunner
+    elif run_type == "batch":
+        return SequentialRunner
+    else:
+        return SequentialRunner
 
 
-async def run_batch(
-    config: Config, command: BaseJujuCommand, parsed_args: Namespace
-) -> ResultsType:
-    """Run controller target command in batches.
+class Runner(metaclass=ABCMeta):
+    def __init__(self, config, command, parsed_args):
+        """FIXME."""
+        self.config = config
+        self.command = command
+        self.parsed_args = parsed_args
+        self._tasks = []
+        self.build_tasks()
 
-    THIS FUNCTION IS NOT YET SUPPORTED.
-    """
-    raise NotImplementedError("running in batches is not yet supported")
+    def build_tasks(self):
+        filtered_config = get_filtered_config(self.config, self.parsed_args.filter)
+        for controller_config in filtered_config.controllers:
+            self._tasks.append(task(controller_config, self.command, self.parsed_args))
+
+    @abstractmethod
+    def run(self) -> Any:
+        pass
 
 
-async def run(config: Config, command: BaseJujuCommand, parsed_args: Namespace) -> ResultsType:
-    """Run command on controllers."""
+async def task(controller_config, command, parsed_args):
     try:
-        run_type = parsed_args.run_type
-        logger.info("running with run_type: %s", run_type)
-        if run_type == "parallel":
-            return await run_parallel(config, command, parsed_args)
-        if run_type == "batch":
-            return await run_batch(config, command, parsed_args)
-
-        return await run_serial(config, command, parsed_args)
+        command_arguments = vars(parsed_args)
+        command_arguments["controller_config"] = controller_config
+        return await command(command_arguments)
     finally:
-        await connect_manager.clean()
+        pass  # this will break parallel execution
+        # await connect_manager.clean()
+
+
+class ParallelRunner(Runner):
+    def __init__(self, config, command, parsed_args):
+        """FIXME."""
+        super().__init__(config, command, parsed_args)
+
+    def run(self) -> Any:
+        """Execute Juju Commands."""
+        loop = asyncio.get_event_loop()
+        tasks = []
+        # broken, because of connect_manager.clean() closes all connections
+        for task in self._tasks:
+            tasks.append(loop.create_task(task))
+        loop.run_until_complete(asyncio.gather(*tasks))
+        return [task.result() for task in tasks]
+
+
+class BatchRunner(Runner):
+    def __init__(self, config, command, parsed_args):
+        """FIXME."""
+        super().__init__(config, command, parsed_args)
+
+    def run(self) -> Any:
+        raise NotImplementedError("running in batches is not yet supported")
+
+
+class SequentialRunner(Runner):
+    def __init__(self, config, command, parsed_args):
+        """FIXME."""
+        super().__init__(config, command, parsed_args)
+
+    def run(self) -> Any:
+        """Execute Juju Commands."""
+        loop = asyncio.get_event_loop()
+        results = []
+        for task in self._tasks:
+            task = loop.create_task(task)
+            loop.run_until_complete(asyncio.gather(task))
+            results.append(task.result())
+        return results
