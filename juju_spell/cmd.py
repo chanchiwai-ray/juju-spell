@@ -170,7 +170,7 @@ def exec_cmd() -> int:
         emit.error(craft_error)
         return_code = 130
     except JujuSpellError as err:
-        if emit._mode in [  # pylint: disable=W0212
+        if emit.get_mode() in [
             EmitterMode.BRIEF,
             EmitterMode.QUIET,
             EmitterMode.VERBOSE,
@@ -181,7 +181,7 @@ def exec_cmd() -> int:
         emit.error(craft_error)
         return_code = 1
     except Exception as err:  # pylint: disable=W0718
-        if emit._mode in [  # pylint: disable=W0212
+        if emit.get_mode() in [
             EmitterMode.BRIEF,
             EmitterMode.QUIET,
             EmitterMode.VERBOSE,
