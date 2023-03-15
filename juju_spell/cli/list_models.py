@@ -98,8 +98,6 @@ class ListModelsCMD(JujuReadCMD):
                 },
                 "success": true,
                 "output": {
-                    "uuid": "03ascsb2-bba8-477b-854e-5715a7sb320a",
-                    "name": "xxx-serverstack",
                     "data": {
                         "models": [
                             "controller",
@@ -122,9 +120,10 @@ class ListModelsCMD(JujuReadCMD):
         heading = ""
         for content in retval:
             output = content["output"]
-            controller_name = output["name"]
             models = output["data"]["models"]
             refresh = output["data"]["refresh"]
+            context = content["context"]
+            controller_name = context["name"]
             controller_models_mapping[controller_name] = models
             if not refresh:
                 timestamp = float(output["timestamp"])
