@@ -169,14 +169,25 @@ def exec_cmd() -> int:
         craft_error.__cause__ = err
         emit.error(craft_error)
         return_code = 130
-    except (JujuSpellError, Exception) as err:  # pylint: disable=W0718
+    except JujuSpellError as err:
         if emit._mode in [  # pylint: disable=W0212
             EmitterMode.BRIEF,
             EmitterMode.QUIET,
             EmitterMode.VERBOSE,
         ]:
             print(os.linesep + traceback.format_exc(), file=sys.stderr)
-        craft_error = CraftError(f"Application internal error: {err!r}")
+        craft_error = CraftError(f"JujuSpell error: {err!r}")
+        craft_error.__cause__ = err
+        emit.error(craft_error)
+        return_code = 1
+    except Exception as err:  # pylint: disable=W0718
+        if emit._mode in [  # pylint: disable=W0212
+            EmitterMode.BRIEF,
+            EmitterMode.QUIET,
+            EmitterMode.VERBOSE,
+        ]:
+            print(os.linesep + traceback.format_exc(), file=sys.stderr)
+        craft_error = CraftError(f"Unexpected internal error: {err!r}")
         craft_error.__cause__ = err
         emit.error(craft_error)
         return_code = 1
