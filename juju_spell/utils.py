@@ -15,42 +15,19 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 """Utilities for JujuSpell."""
-import dataclasses
+from __future__ import annotations
+
 import logging
 import secrets
 from collections import defaultdict
 from pathlib import Path
-from typing import Any, Dict, Iterable, List, Union
+from typing import Any, Dict, Iterable, List
 
 import yaml
 
 from juju_spell.exceptions import JujuSpellError
-from juju_spell.settings import DEFAULT_CACHE_DIR
 
 logger = logging.getLogger(__name__)
-
-
-@dataclasses.dataclass(frozen=True)
-class CacheContext:
-    """A context for holding cache data."""
-
-    uuid: str
-    name: str
-    data: Dict[str, Any]
-    timestamp: float
-
-
-class Cache(CacheContext):
-    """A cache for command's output with cache policy."""
-
-    @property
-    def context(self) -> Dict[str, Any]:
-        """Return the cache context as a dictionary."""
-        return dataclasses.asdict(self)
-
-    def add_policy(self) -> None:
-        """Add more policy to the default policy."""
-        raise NotImplementedError("Add policy is not supported yet.")
 
 
 def strtobool(value: str) -> bool:
@@ -147,35 +124,3 @@ def load_yaml_file(path: Path) -> Any:
         raise JujuSpellError(f"patch file {path} does not exist") from error
     except PermissionError as error:
         raise JujuSpellError(f"permission denied to read patch file {path}") from error
-
-
-def save_to_cache(cache: Cache, name: Union[str, Path]) -> None:
-    """Save data to the default cache directory named by `name`."""
-    if not DEFAULT_CACHE_DIR.exists():
-        DEFAULT_CACHE_DIR.mkdir()
-    fname = DEFAULT_CACHE_DIR / name
-    try:
-        with open(fname, "w", encoding="UTF-8") as file:
-            data = yaml.safe_dump(cache.context)
-            logger.info("save cache file to %s", str(fname))
-            file.write(data)
-    except PermissionError as error:
-        raise JujuSpellError(f"permission denied to write to file `{fname}`.") from error
-    except Exception as error:
-        raise JujuSpellError(f"{str(error)}.") from error
-
-
-def load_from_cache(name: Union[str, Path]) -> Cache:
-    """Load data from the default cache directory named by `name`."""
-    fname = DEFAULT_CACHE_DIR / name
-    try:
-        with open(fname, "r", encoding="UTF-8") as file:
-            data = yaml.safe_load(file)
-            logger.info("load cache file from %s", str(fname))
-            return Cache(**data)
-    except FileNotFoundError as error:
-        raise JujuSpellError(f"`{fname}` does not exists.") from error
-    except PermissionError as error:
-        raise JujuSpellError(f"permission denied to read from file `{fname}`.") from error
-    except Exception as error:
-        raise JujuSpellError(f"{str(error)}.") from error
