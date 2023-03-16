@@ -73,6 +73,12 @@ class Cache(metaclass=ABCMeta):
     def delete(self, key: str) -> None:
         """Delete the data from the cache."""
 
+    def check_expired(self, key: str) -> bool:
+        """Check if the cache is expired or not; should be implemented if necessary."""
+        raise NotImplementedError(
+            "Subclasses of `Cache` should implement this method if necessary."
+        )
+
 
 @dataclasses.dataclass
 class FileCacheContext:
