@@ -3,7 +3,7 @@ from typing import Any, Dict, List, Union
 
 from juju.controller import Controller
 
-from juju_spell.cache import DEFAULT_CACHE_BACKEND, use_cache
+from juju_spell.cache import DEFAULT_CACHE_BACKEND, Cache, use_cache
 from juju_spell.commands.base import BaseJujuCommand
 
 
@@ -12,7 +12,7 @@ class ListModelsCommand(BaseJujuCommand):
 
     async def execute(self, controller: Controller, **kwargs: Any) -> Dict[str, Union[List, bool]]:
         """List models from the local cache or from the controllers."""
-        cache: Any = use_cache(DEFAULT_CACHE_BACKEND)
+        cache: Cache = use_cache(DEFAULT_CACHE_BACKEND)
         list_models_key = f"{self.name}_{controller.controller_uuid}"
         context = None
         models = []
@@ -20,7 +20,7 @@ class ListModelsCommand(BaseJujuCommand):
         if not kwargs["refresh"]:
             context = cache.get(list_models_key)
             if context:
-                context["data"]["refresh"] = kwargs["refresh"]
+                context["data"]["refresh"] = False
                 models = context["data"]["models"]
 
         if kwargs["refresh"] or context is None or cache.check_expired(list_models_key):
@@ -31,7 +31,7 @@ class ListModelsCommand(BaseJujuCommand):
                     model_mappings=kwargs["controller_config"].model_mapping,
                 )
             )
-            cache.put(list_models_key, {"models": models, "refresh": kwargs["refresh"]})
+            cache.put(list_models_key, {"models": models, "refresh": True})
             context = cache.get(list_models_key)
 
         self.logger.debug("%s list models: %s", controller.controller_uuid, models)
