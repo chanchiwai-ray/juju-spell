@@ -63,11 +63,15 @@ class Cache(metaclass=ABCMeta):
 
     @abstractmethod
     def get(self, key: str) -> Any:
-        """Get data from the cache, need to implement by the subclass."""
+        """Get the data from the cache."""
 
     @abstractmethod
     def put(self, key: str, value: Any) -> None:
-        """Update the cache's data, need to implement by the subclass."""
+        """Add or update the data in the cache."""
+
+    @abstractmethod
+    def delete(self, key: str) -> None:
+        """Delete the data from the cache."""
 
 
 @dataclasses.dataclass
