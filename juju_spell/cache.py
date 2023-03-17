@@ -73,12 +73,6 @@ class Cache(metaclass=ABCMeta):
     def delete(self, key: str) -> None:
         """Delete the data from the cache."""
 
-    def check_expired(self, key: str) -> bool:
-        """Check if the cache is expired or not; should be implemented if necessary."""
-        raise NotImplementedError(
-            "Subclasses of `Cache` should implement this method if necessary."
-        )
-
 
 @dataclasses.dataclass
 class FileCacheContext:
@@ -96,6 +90,9 @@ class FileCache(Cache):
         context = self._connect(key)
         if not context:
             return None
+        if self._check_expired(context):
+            self._remove(key)
+            return None
         return dataclasses.asdict(context)
 
     def put(self, key: str, value: Dict[str, Any]) -> None:
@@ -106,11 +103,8 @@ class FileCache(Cache):
         """Delete the data from the file cache."""
         self._remove(key)
 
-    def check_expired(self, key: str) -> bool:
+    def _check_expired(self, context: FileCacheContext) -> bool:
         """Check if the cache is expired or not."""
-        context = self._connect(key)
-        if not context:
-            return True
         return context.timestamp + self.policy.ttl < time()
 
     def _commit(self, key: str, context: FileCacheContext) -> None:

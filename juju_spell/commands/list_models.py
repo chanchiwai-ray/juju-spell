@@ -23,7 +23,7 @@ class ListModelsCommand(BaseJujuCommand):
                 context["data"]["refresh"] = False
                 models = context["data"]["models"]
 
-        if kwargs["refresh"] or context is None or cache.check_expired(list_models_key):
+        if kwargs["refresh"] or context is None:
             models = list(
                 await self.get_filtered_model_names(
                     controller=controller,
