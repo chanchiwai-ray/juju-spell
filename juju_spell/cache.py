@@ -33,7 +33,7 @@ logger = logging.getLogger(__name__)
 
 DEFAULT_TTL_RULE = 3600  # in seconds
 DEFAULT_CACHE_BACKEND = "FileCache"
-AVALIABLE_BACKENDS = {"FileCache"}
+AVALIABLE_BACKENDS = {DEFAULT_CACHE_BACKEND}
 
 
 def use_cache(backend: str = DEFAULT_CACHE_BACKEND) -> "Cache":
