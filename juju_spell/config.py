@@ -89,6 +89,14 @@ class String(Regex):
         super().__init__(pattern, message, str, default)
 
 
+class RequiredString(Regex):
+    """A template used to validate string with regex and provide custom error."""
+
+    def __init__(self, pattern: str, message: str, default: str = confuse.templates.REQUIRED):
+        """Initialize the String object."""
+        super().__init__(pattern, message, str, default)
+
+
 class PortRange(Regex):
     """A template specific for port range."""
 
@@ -145,7 +153,7 @@ class RetryPolicyDict(confuse.MappingTemplate):
 DEFAULT_KEY = "default"
 JUJUSPELL_CONTROLLER_TEMPLATE = ControllerDict(
     {
-        "uuid": String(UUID_REGEX, "Invalid uuid definition"),
+        "uuid": RequiredString(UUID_REGEX, "Invalid uuid definition"),
         "name": str,
         "customer": str,
         "owner": str,
