@@ -206,6 +206,16 @@ def test_validate_config_failure(extra_configuration, test_config_dict):
         _validate_config(test_config)
 
 
+def test_validate_config_missing_uuid(test_config_dict):
+    """Validate config should raise error if uuid is not provided."""
+    _validate_config(test_config_dict)
+    for controller in test_config_dict["controllers"]:
+        controller.pop("uuid")
+
+    with pytest.raises(JujuSpellError):
+        _validate_config(test_config_dict)
+
+
 @pytest.mark.parametrize(
     "extra_configuration, template, exp_error",
     [
