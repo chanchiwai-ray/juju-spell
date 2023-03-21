@@ -140,6 +140,6 @@ class FileCache(Cache):
         except FileNotFoundError as error:
             raise JujuSpellError(f"`{cache_name}` does not exists.") from error
         except PermissionError as error:
-            raise JujuSpellError(f"permission denied to read from file `{cache_name}`.") from error
+            raise JujuSpellError(f"permission denied to delete file `{cache_name}`.") from error
         except Exception as error:
             raise JujuSpellError(f"{str(error)}.") from error
