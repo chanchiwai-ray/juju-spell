@@ -1,17 +1,93 @@
 [project]
 name = "juju-ai"
 version = "0.1.0"
-description = "Add your description here"
+description = "A Juju plugin that brings LLM into Juju Ecosystem."
 readme = "README.md"
 authors = [
     { name = "Chi Wai Chan", email = "chanchiwairay@gmail.com" }
 ]
 requires-python = ">=3.8"
-dependencies = []
+dependencies = [
+    "craft-cli>=2.15.0",
+    "jubilant>=1.0.0",
+]
 
 [project.scripts]
-juju-ai = "juju_ai:main"
+juju-ai = "juju_ai.__main__:main"
 
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
+
+[dependency-groups]
+dev = [
+    "mypy>=1.14.1",
+    "ruff>=0.11.7",
+]
+
+
+#
+# Tools configuration
+#
+
+[tool.ruff]
+line-length = 99
+indent-width = 4
+exclude = [
+    ".eggs",
+    ".git",
+    ".mypy_cache",
+    ".ruff_cache",
+    ".tox",
+    ".venv",
+    "__pypackages__",
+    "_build",
+    "build",
+    "dist",
+    "venv",
+    "report",
+    "lib",
+]
+
+[tool.ruff.format]
+indent-style = "space"
+line-ending = "auto"
+quote-style = "double"
+docstring-code-format = false
+skip-magic-trailing-comma = false
+docstring-code-line-length = "dynamic"
+
+
+[tool.ruff.lint]
+select = [
+    "ARG", # flake8-unused-arguments
+    "B",   # flake8-bugbear
+    "C",   # flake8-comprehensions
+    "C9",  # mccabe
+    "D",   # pydocstyle
+    "E",   # pycodestyle errors
+    "F",   # pyflakes
+    "I",   # isort
+    "N",   # pep8-naming
+    "PL",  # pylint
+    "W",   # pycodestyle warnings
+]
+ignore = [
+    "D203",  # one-blank-line-before-class
+    "D213",  # multi-line-summary-second-line
+]
+fixable = ["ALL"]
+unfixable = []
+per-file-ignores = {"tests/*" = ["D100","D101","D102","D103","D104"]}
+
+[tool.codespell]
+skip = "build,lib,venv,icon.svg,.tox,.git,.mypy_cache,.ruff_cache,.coverage,./tests/unit/report"
+ignore-words-list = "assertIn"
+
+[tool.mypy]
+warn_unused_ignores = true
+warn_unused_configs = true
+warn_unreachable = true
+disallow_untyped_defs = true
+ignore_missing_imports = true
+exclude = [".eggs", ".git", ".tox", ".venv", ".build", "build", "report", "tests", "lib"]
