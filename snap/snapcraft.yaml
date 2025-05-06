@@ -1,0 +1,41 @@
+name: juju-spell
+base: core24
+version: 0.1.0
+license: Apache-2.0
+summary: A Juju plugin that brings AI into Juju Ecosystem
+description: |
+  Juju Spell is a Juju plugin that integrates with ollama to bring AI into Juju command line
+  interface.
+
+grade: devel
+confinement: strict
+
+apps:
+  juju-spell:
+    command: bin/juju-spell
+    plugs:
+      - network-bind  # to access ollama over the network
+      - dot-local-state-juju  # to run juju cli from juju-spell
+      - dot-local-state-juju-spell  # to access local state files for juju-spell
+
+plugs:
+  juju-bin:
+    interface: content
+    content: juju-bin
+    target: $SNAP/usr
+
+  dot-local-share-juju:
+    interface: personal-files
+    write:
+      - $HOME/.local/share/juju
+
+  dot-local-state-juju-spell:
+    interface: personal-files
+    write:
+      - $HOME/.local/state/juju-spell
+
+
+parts:
+  juju-spell:
+    source: .
+    plugin: python

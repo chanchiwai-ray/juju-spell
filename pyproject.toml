@@ -1,19 +1,24 @@
 [project]
-name = "juju-ai"
+name = "juju-spell"
 version = "0.1.0"
 description = "A Juju plugin that brings LLM into Juju Ecosystem."
 readme = "README.md"
 authors = [
     { name = "Chi Wai Chan", email = "chanchiwairay@gmail.com" }
 ]
-requires-python = ">=3.8"
+requires-python = ">=3.10"
 dependencies = [
-    "craft-cli>=2.15.0",
+    "grandalf>=0.8",
     "jubilant>=1.0.0",
+    "langchain-core>=0.3.57",
+    "langchain-ollama>=0.3.2",
+    "langgraph>=0.4.1",
+    "prompt-toolkit>=3.0.51",
+    "typer>=0.15.3",
 ]
 
 [project.scripts]
-juju-ai = "juju_ai.__main__:main"
+juju-spell = "juju_spell:app"
 
 [build-system]
 requires = ["hatchling"]
@@ -79,6 +84,9 @@ ignore = [
 fixable = ["ALL"]
 unfixable = []
 per-file-ignores = {"tests/*" = ["D100","D101","D102","D103","D104"]}
+
+[tool.ruff.lint.pylint]
+max-args = 10
 
 [tool.codespell]
 skip = "build,lib,venv,icon.svg,.tox,.git,.mypy_cache,.ruff_cache,.coverage,./tests/unit/report"
