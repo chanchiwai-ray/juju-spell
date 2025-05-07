@@ -99,9 +99,9 @@ class JujuReActAgent:
             self._console.print(table)
             if end:
                 self._console.print("\nHowever, I don't have enough tools...\n")
+                return False
         else:
             self._console.print(message.pretty_repr())
-            return False
         self._console.print()
         return True
 
