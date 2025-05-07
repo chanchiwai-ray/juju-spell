@@ -49,7 +49,6 @@ def chat(
 ) -> None:
     """Ask LLM questions interactively and run operations on behalf of you."""
     agent = get_juju_react_agent(model, tools, console)
-    agent.draw_graph()
     if ctx.obj.verbose:
         agent.list_available_tools()
     agent.chat({"configurable": {"thread_id": uuid4()}})
