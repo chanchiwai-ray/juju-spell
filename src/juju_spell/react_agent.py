@@ -90,8 +90,10 @@ class JujuReActAgent:
             table.add_column("Availability")
             end = False
             for t in message.tool_calls:
-                end = t["name"] not in available_tools
-                table.add_row(t["name"], json.dumps(t["args"]), str(end))
+                tool_exist = t["name"] in available_tools
+                if not tool_exist:
+                    end = True
+                table.add_row(t["name"], json.dumps(t["args"]), str(tool_exist))
             self._console.print(" Ai Message ".center(80, "="))
             self._console.print("\nI want to perform the following actions:\n")
             self._console.print(table)
