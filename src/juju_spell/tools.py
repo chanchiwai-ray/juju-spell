@@ -36,7 +36,9 @@ def add_tool(func: Callable) -> Callable:
 
 @add_tool
 def juju_debug_log(model: str | None = None, limit: int = 0) -> str:
-    """Return debug log messages from a model.
+    """Display the log messages for a model.
+
+    The tool runs `juju debug-log [-m model] [--limit 0]`.
 
     Args:
         model: If specified, operate on this Juju model, otherwise use the current Juju model.
@@ -59,7 +61,9 @@ def juju_deploy(
     name: str | None = None,
     num_units: int = 1,
 ) -> str:
-    """Deploy a new application.
+    """Deploys a new juju application or bundle.
+
+    This tool runs `juju deploy <charm> [name] [--base base] [--channel channel] [-n num_units]`.
 
     Args:
         charm: The name of charm or bundle to deploy.
@@ -90,7 +94,9 @@ def juju_deploy(
 
 @add_tool
 def juju_models() -> str:
-    """Return all the models known to the current controller.
+    """List models a user can access on a controller.
+
+    This tool runs `juju models`.
 
     Returns:
         All the models known to the current controller.
@@ -101,26 +107,15 @@ def juju_models() -> str:
 
 
 @add_tool
-def juju_current_model_name() -> str:
-    """Get the name of the currently connected model.
-
-    Returns:
-        The name of the currently connected model.
-
-    """
-    args = ["models", "--format", "json"]
-    result = json.loads(Juju().cli(*args))
-    return result["current-model"]
-
-
-@add_tool
 def juju_add_model(model: str, controller: str | None = None) -> str:
     """Add a workload model.
 
+    This tools runs `juju add-model <model> [-c controller]`.
+
     Args:
         model: The name of the model.
-        controller: If specified, create model on this controller, otherwise use the current
-            controller.
+        controller: If specified, operate in this controller, otherwise the controller currently
+            connected.
 
     Returns:
         A message that indicates the if the model creation is successful or not.
@@ -136,6 +131,8 @@ def juju_add_model(model: str, controller: str | None = None) -> str:
 def juju_status(model: str | None = None) -> str:
     """Report the status of the model, its machines, applications and units.
 
+    This tools runs `juju status [-m model]`
+
     Args:
         model: If specified, show the status of this model, otherwise show the status of current
             model.
@@ -146,13 +143,15 @@ def juju_status(model: str | None = None) -> str:
     """
     args = ["status"]
     if model:
-        args.append(model)
+        args.extend(["-m", model])
     return Juju().cli(*args)
 
 
 @add_tool
 def juju_integrate(app_1: str, app_2: str, model: str | None = None) -> str:
     """Integrate two applications.
+
+    This tool runs `juju integrate [-m model] <app_1> <app_2>`.
 
     Args:
         app_1: One of the applications (and endpoints) to integrate.
@@ -168,3 +167,18 @@ def juju_integrate(app_1: str, app_2: str, model: str | None = None) -> str:
         args.extend(["-m", model])
     Juju().cli(*args)
     return f"{app_1} and {app_2} integrated."
+
+
+@add_tool
+def get_current_model_name() -> str:
+    """Get the name of the currently connected model.
+
+    This tools effectively runs `juju models --format json | jq '."current-model"'`.
+
+    Returns:
+        The name of the currently connected model.
+
+    """
+    args = ["models", "--format", "json"]
+    result = json.loads(Juju().cli(*args))
+    return result["current-model"]
